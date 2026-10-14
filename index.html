@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="data:,">
+  <title>Replit Cat — zsh-style Web Console</title>
+  <style>
+    :root {
+      --base: #1e1e2e;
+      --mantle: #181825;
+      --surface: #313244;
+      --border: #45475a;
+      --text: #cdd6f4;
+      --muted: #a6adc8;
+      --dim: #7f849c;
+      --blue: #89b4fa;
+      --green: #a6e3a1;
+      --yellow: #f9e2af;
+      --mauve: #cba6f7;
+      --red: #f38ba8;
+      --font: Menlo, Monaco, Consolas, "SFMono-Regular", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body { padding: 18px; background: #11111b; color: var(--text); font: 13px/1.55 var(--font); }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .window { position: relative; display: grid; grid-template-rows: 39px minmax(0, 1fr) 82px; width: min(1500px, 100%); height: calc(100vh - 36px); min-height: 560px; margin: 0 auto; overflow: hidden; background: var(--base); border: 1px solid #585b70; border-radius: 9px; box-shadow: 0 22px 60px #0009; }
+    .titlebar { position: relative; display: flex; align-items: center; padding: 0 15px; background: linear-gradient(#36364a, #2e2f40); border-bottom: 1px solid var(--border); }
+    .lights { display: flex; gap: 8px; }
+    .lights span { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px #0002; }
+    .lights span:nth-child(1) { background: #ff5f57; }
+    .lights span:nth-child(2) { background: #febc2e; }
+    .lights span:nth-child(3) { background: #28c840; }
+    .title { position: absolute; left: 50%; transform: translateX(-50%); color: #c5c6d2; font: 12px -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; }
+    .titlebar-meta { margin-left: auto; color: var(--muted); font-size: 10px; letter-spacing: .04em; }
+    .screen { min-height: 0; overflow-y: auto; padding: 22px 30px 32px; scrollbar-color: var(--border) transparent; }
+    .screen-inner { max-width: 1050px; }
+    .line { min-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .path { color: var(--blue); }
+    .percent { color: var(--green); font-weight: 700; }
+    .command { color: var(--text); font-weight: 600; }
+    .cursor { display: inline-block; width: 8px; height: 15px; margin-left: 2px; vertical-align: -3px; background: var(--text); animation: blink 1.2s steps(1) infinite; }
+    .blank { height: 12px; }
+    .banner { color: var(--mauve); font-weight: 700; letter-spacing: .02em; }
+    .comment { color: var(--dim); }
+    .run-command { margin: 16px 0 4px; }
+    .notice { color: var(--yellow); margin: 3px 0 16px; }
+    .notice::before { content: "# "; color: var(--dim); }
+    .rule { width: min(900px, 100%); border-top: 1px dashed var(--border); margin: 13px 0 17px; }
+    .log-entry { margin: 0 0 15px; }
+    .log-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+    .time { color: var(--dim); font-size: 11px; }
+    .symbol { width: 12px; color: var(--green); font-weight: 700; }
+    .symbol.fail { color: var(--yellow); }
+    .symbol.repair { color: var(--mauve); }
+    .log-command { color: var(--text); font-weight: 700; }
+    .log-copy, .log-meta, .evidence { margin-left: 72px; max-width: 880px; }
+    .log-copy { color: var(--muted); }
+    .log-copy::before { content: "│ "; color: var(--border); }
+    .log-meta { color: var(--dim); font-size: 11px; }
+    .log-meta::before { content: "└ "; color: var(--border); }
+    .evidence { margin-top: 2px; color: var(--dim); font-size: 11px; }
+    .evidence summary { display: inline-block; list-style: none; cursor: pointer; color: var(--blue); }
+    .evidence summary::-webkit-details-marker { display: none; }
+    .evidence summary::before { content: "[+] "; color: var(--green); }
+    .evidence[open] summary::before { content: "[-] "; }
+    .evidence-body { max-width: 790px; margin: 6px 0 0 4px; padding-left: 12px; border-left: 1px solid var(--border); color: var(--muted); }
+    .outcome { margin: 18px 0 0 18px; color: var(--text); white-space: pre-wrap; }
+    .outcome .green { color: var(--green); }
+    .outcome .yellow { color: var(--yellow); }
+    .outcome .muted { color: var(--dim); }
+    .cat-agent { position: absolute; right: 56px; bottom: 122px; width: 255px; pointer-events: none; }
+    .cat-bubble { position: relative; min-height: 60px; width: 235px; padding: 10px 12px; color: var(--text); border: 1px solid var(--blue); border-radius: 8px 8px 8px 0; background: var(--surface); font-size: 11px; line-height: 1.45; box-shadow: 0 7px 18px #0003; }
+    .cat-bubble::after { content: ""; position: absolute; left: 12px; bottom: -7px; width: 12px; height: 12px; transform: rotate(-45deg); border-left: 1px solid var(--blue); border-bottom: 1px solid var(--blue); background: var(--surface); }
+    .cat-ascii { width: 170px; margin: 5px 0 0 auto; color: var(--mauve); text-shadow: 0 0 18px #cba6f755; font: 19px/1.05 var(--font); letter-spacing: .01em; white-space: pre; animation: sway 4s ease-in-out infinite; }
+    .cat-ascii .eyes { color: var(--green); }
+    .input-area { border-top: 1px solid var(--border); background: var(--mantle); padding: 12px 30px 9px; }
+    .input-line { display: flex; align-items: flex-start; gap: 9px; width: 100%; }
+    .input-line .path, .input-line .percent { padding-top: 5px; white-space: nowrap; }
+    textarea { flex: 1; height: 28px; max-height: 56px; resize: none; border: 0; outline: 0; padding: 4px 0 0; background: transparent; color: var(--text); font-size: 13px; line-height: 20px; }
+    textarea::placeholder { color: var(--dim); }
+    .send { padding: 3px 5px; border: 0; background: transparent; color: var(--green); font-size: 17px; line-height: 20px; }
+    .send:hover, .send:focus-visible, .text-button:hover, .text-button:focus-visible { color: var(--text); }
+    .hint { display: flex; align-items: center; gap: 14px; margin-top: 7px; color: var(--dim); font-size: 10px; }
+    .hint .grow { flex: 1; }
+    .text-button { padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 10px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes sway { 50% { transform: translateX(-12px); } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+    @media (max-width: 1150px) { .cat-agent { right: 30px; width: 210px; } .cat-bubble { width: 205px; } .screen-inner { max-width: calc(100% - 215px); } }
+    @media (max-width: 790px) { body { padding: 0; } .window { width: 100%; height: 100vh; min-height: 450px; border: 0; border-radius: 0; } .titlebar-meta { display: none; } .screen { padding: 16px 15px 30px; } .screen-inner { max-width: 100%; } .log-head { gap: 6px; } .log-copy, .log-meta, .evidence { margin-left: 18px; } .cat-agent { position: static; width: 230px; margin: 24px 0 0 auto; } .cat-bubble { width: 220px; } .input-area { padding: 10px 15px 8px; } .input-line { gap: 6px; } .input-line .path { display: none; } .hint span:nth-child(2) { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <header class="titlebar">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">replit-cat — zsh — web preview</div>
+      <div class="titlebar-meta">OFFLINE / SAMPLE DATA</div>
+    </header>
+
+    <main class="screen" id="screen" aria-label="Replit Cat terminal-style activity">
+      <div class="screen-inner">
+        <div class="line"><span class="path">~/replit-cat</span> <span class="percent">%</span> <span class="command">cat console --preview</span></div>
+        <div class="blank"></div>
+        <div class="line banner">&gt;_  Replit Cat 0.1.0</div>
+        <div class="line comment">    Plan → Build → Evaluate → Repair → Verify</div>
+        <div id="runContent"></div>
+      </div>
+
+      <div class="cat-agent" aria-label="Cat companion">
+        <div class="cat-bubble" id="catWords" role="status" aria-live="polite">Join was broken. I fixed it and checked again. Meow!</div>
+        <div class="cat-ascii" aria-hidden="true"> /&#92;_/&#92;<br>( <span class="eyes">o</span>.<span class="eyes">o</span> )<br> &gt; ^ &lt;</div>
+      </div>
+    </main>
+
+    <footer class="input-area">
+      <form class="input-line" id="promptForm">
+        <span class="path" aria-hidden="true">~/replit-cat</span>
+        <span class="percent" aria-hidden="true">%</span>
+        <label class="visually-hidden" for="promptInput">Describe what you want to build</label>
+        <textarea id="promptInput" rows="1" placeholder="cat build &quot;Describe your app in one sentence&quot;" aria-describedby="promptHint"></textarea>
+        <button class="send" type="submit" aria-label="Submit preview prompt">↵</button>
+      </form>
+      <div class="hint" id="promptHint"><span>Enter submit · Shift+Enter new line</span><span>Web UI preview · no live Replit connection</span><span class="grow"></span><button type="button" class="text-button" id="evidenceButton">:evidence on</button><button type="button" class="text-button" id="resetButton">:replay sample</button></div>
+    </footer>
+  </div>
+
+  <script>
+    // The commands and log entries below are a UI sample; no shell, Replit, or server call runs here.
+    const samplePrompt = 'cat build "A warm, simple walk-planning app for local pet owners"';
+    const sampleEvents = [
+      { id:'e1', mark:'✓', title:'plan extract --requirements 3 --assumptions 1', time:'12:04', copy:'Create a walk, browse walks, join a walk. “Warm and simple” is a design assumption.', meta:'source: user prompt · scope: core flow', proof:'Sample extraction only. A real run must expose assumptions for user review.' },
+      { id:'e2', mark:'✓', title:'replit plan --review', time:'12:05', copy:'Build the three core actions, then check the user path in Preview.', meta:'adapter: ui.plan · state: reviewed · source: sample', proof:'A real run must observe the Plan view and its approval state.' },
+      { id:'e3', mark:'✓', title:'replit agent --build', time:'12:08', copy:'The walk form and list appear in the sample preview.', meta:'adapter: replit.agent · observed: preview visible', proof:'A real run must attach an MCP response or a recorded screen observation.' },
+      { id:'e4', mark:'!', title:'eval run --flow join-walk', time:'12:09', copy:'Join does not change participation after opening a walk card.', meta:'criterion: join_walk · verdict: FAIL · evidence: sample:e4', proof:'The participation state stayed unchanged before and after Join. A builder completion claim is not proof.' },
+      { id:'e5', mark:'↻', title:'repair apply --target join-walk', time:'12:11', copy:'Ask for a focused fix, then rerun the same path.', meta:'iteration: 1/3 · target: join_walk', proof:'Failure and retest observations must belong to the same run.' },
+      { id:'e6', mark:'✓', title:'eval rerun --required', time:'12:12', copy:'Create a walk → find it in the list → join it: PASS.', meta:'required: 3/3 · core flows: 2/2 · visual taste: user review', proof:'Required criteria pass only with reproducible evidence. Visual taste remains open for user review.' }
+    ];
+    const escapeHTML = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+    const runContent = document.getElementById('runContent');
+    const promptInput = document.getElementById('promptInput');
+    const screen = document.getElementById('screen');
+    let prompt = samplePrompt;
+    let events = sampleEvents.slice();
+    let timer = null;
+
+    function eventHTML(event) {
+      const tone = event.mark === '!' ? 'fail' : event.mark === '↻' ? 'repair' : '';
+      return `<div class="log-entry"><div class="log-head"><span class="time">[${escapeHTML(event.time)}]</span><span class="symbol ${tone}">${escapeHTML(event.mark)}</span><span class="log-command">${escapeHTML(event.title)}</span></div><div class="log-copy">${escapeHTML(event.copy)}</div><div class="log-meta">${escapeHTML(event.meta)}</div><details class="evidence"><summary>evidence/${escapeHTML(event.id)} · inspect</summary><div class="evidence-body">${escapeHTML(event.proof)}</div></details></div>`;
+    }
+
+    function render() {
+      const hasSample = events.length > 0;
+      runContent.innerHTML = `<div class="line run-command"><span class="path">~/replit-cat</span> <span class="percent">%</span> <span class="command">${escapeHTML(prompt)}</span></div><div class="notice">${hasSample ? 'SAMPLE RUN · illustrative command syntax · no Replit connection' : 'LOCAL PREVIEW · this command was not executed'}</div><div class="rule"></div>${hasSample ? events.map(eventHTML).join('') : '<div class="line comment">Request displayed locally. Nothing was sent to Replit or a server.</div>'}${events.length === sampleEvents.length ? '<div class="outcome">┌─ <span class="green">REVIEW READY</span> <span class="muted">/ sample output</span><br>│  required       <span class="green">3/3</span><br>│  core flows     <span class="green">2/2</span><br>│  visual taste   <span class="yellow">user review</span><br>└─ Evidence shown here is sample data, not a real test run.</div>' : ''}`;
+      document.getElementById('catWords').textContent = events.length >= 5 ? 'Join was broken. I fixed it and checked again. Meow!' : hasSample ? 'I’m checking the plan first. Meow!' : 'I can explain the next step when a real run is connected. Meow!';
+      document.getElementById('evidenceButton').textContent = ':evidence on';
+    }
+
+    function replay() {
+      clearInterval(timer);
+      prompt = samplePrompt;
+      events = [];
+      render();
+      let index = 0;
+      timer = setInterval(() => {
+        events.push(sampleEvents[index]);
+        index += 1;
+        render();
+        screen.scrollTop = screen.scrollHeight;
+        if (index === sampleEvents.length) clearInterval(timer);
+      }, 380);
+    }
+
+    document.getElementById('promptForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const value = promptInput.value.trim();
+      if (!value) return;
+      promptInput.value = '';
+      if (value === samplePrompt) replay();
+      else { clearInterval(timer); prompt = value; events = []; render(); screen.scrollTop = 0; }
+    });
+    promptInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('promptForm').requestSubmit(); }
+    });
+    document.getElementById('resetButton').addEventListener('click', replay);
+    document.getElementById('evidenceButton').addEventListener('click', () => {
+      const details = [...document.querySelectorAll('details.evidence')];
+      const open = details.some(item => !item.open);
+      details.forEach(item => item.open = open);
+      document.getElementById('evidenceButton').textContent = open ? ':evidence off' : ':evidence on';
+    });
+    document.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); promptInput.focus(); }
+    });
+    render();
+  </script>
+</body>
+</html>
